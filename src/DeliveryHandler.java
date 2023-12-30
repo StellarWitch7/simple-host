@@ -1,15 +1,19 @@
 import java.io.*;
 import java.net.Socket;
 import java.util.Date;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class DeliveryHandler extends Thread {
     static final String nl = "\r\n";
+    static final String badRequest = "HTTP/1.0 400 Bad Request"+ nl + nl;
+    static final Pattern pathPattern = Pattern.compile("(?<=GET )(.*)(?= HTTP)");
     private final Socket connection;
-    private final String path;
+    private final String rootpath;
 
     public DeliveryHandler(Socket connection, String path) {
         this.connection = connection;
-        this.path = path;
+        this.rootpath = path;
     }
 
     @Override
@@ -32,13 +36,18 @@ public class DeliveryHandler extends Thread {
             if (!request.startsWith("GET ") ||
                     !(request.endsWith(" HTTP/1.0") || request.endsWith(" HTTP/1.1"))) {
                 // bad request
-                pout.print("HTTP/1.0 400 Bad Request"+ nl + nl);
+                pout.print(badRequest);
             } else {
-                FileInputStream file = new FileInputStream(path);
+                Matcher matcher = pathPattern.matcher(request);
+                if (!matcher.find()) return;
+                String filepath = rootpath + matcher.group()
+                        .replaceAll("\\\\", "/")
+                        .replaceAll("\\.\\./", "");
+                FileInputStream file = new FileInputStream(filepath);
                 DataInputStream dataInputStream = new DataInputStream(file);
                 byte[] response = new byte[file.available()];
                 dataInputStream.readFully(response);
-                String filename = path.substring(path.lastIndexOf("/") + 1);
+                String filename = filepath.substring(filepath.lastIndexOf("/") + 1);
 
                 pout.print("HTTP/1.0 200 OK" + nl +
                         "Content-Type: application/octet-stream" + nl +

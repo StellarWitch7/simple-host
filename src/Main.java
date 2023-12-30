@@ -18,7 +18,7 @@ class Main
                 handler.start();
             }
         } catch (Throwable tr) {
-            System.err.println("Could not start server: " + tr);
+            System.err.println("Server threw an exception: " + tr);
         }
     }
 }
