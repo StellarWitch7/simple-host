@@ -1,65 +1,42 @@
-import java.io.*;
-import java.net.Socket;
-import java.util.Date;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import io.undertow.server.HttpServerExchange;
+import io.undertow.util.Headers;
+import io.undertow.util.StatusCodes;
 
-public class DeliveryHandler extends Thread {
-    static final String nl = "\r\n";
-    static final String badRequest = "HTTP/1.0 400 Bad Request"+ nl + nl;
-    static final Pattern pathPattern = Pattern.compile("(?<=GET )(.*)(?= HTTP)");
-    private final Socket connection;
-    private final String rootpath;
+import java.io.OutputStream;
 
-    public DeliveryHandler(Socket connection, String path) {
-        this.connection = connection;
-        this.rootpath = path;
+public class DeliveryHandler extends RequestHandler {
+    public static final String downloadType = "application/octet-stream";
+    private final boolean alwaysDownload;
+
+    public DeliveryHandler() {
+        alwaysDownload = false;
+    }
+
+    public DeliveryHandler(boolean alwaysDownload) {
+        this.alwaysDownload = alwaysDownload;
     }
 
     @Override
-    public void run() {
+    protected void logic(HttpServerExchange exchange) throws Exception {
+        FileData fileData;
+
         try {
-            BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-            OutputStream out = new BufferedOutputStream(connection.getOutputStream());
-            PrintStream pout = new PrintStream(out, true);
-
-            // read first line of request
-            String request = in.readLine();
-            if (request == null) return;
-
-            // we ignore the rest
-            while (true) {
-                String ignore = in.readLine();
-                if (ignore == null || ignore.isEmpty()) break;
-            }
-
-            if (!request.startsWith("GET ") ||
-                    !(request.endsWith(" HTTP/1.0") || request.endsWith(" HTTP/1.1"))) {
-                // bad request
-                pout.print(badRequest);
-            } else {
-                Matcher matcher = pathPattern.matcher(request);
-                if (!matcher.find()) return;
-                String filepath = rootpath + matcher.group()
-                        .replaceAll("\\\\", "/")
-                        .replaceAll("\\.\\./", "");
-                FileInputStream file = new FileInputStream(filepath);
-                DataInputStream dataInputStream = new DataInputStream(file);
-                byte[] response = new byte[file.available()];
-                dataInputStream.readFully(response);
-                String filename = filepath.substring(filepath.lastIndexOf("/") + 1);
-
-                pout.print("HTTP/1.0 200 OK" + nl +
-                        "Content-Type: application/octet-stream" + nl +
-                        "Content-Disposition: attachment; filename=" + filename + nl +
-                        "Date: " + new Date() + nl +
-                        "Content-length: " + response.length + nl + nl);
-                out.write(response);
-            }
-
-            pout.close();
-        } catch (Throwable tri) {
-            System.err.println("Error handling request: " + tri);
+            fileData = prepareFileData(exchange.getRelativePath());
+        } catch (Exception e) {
+            exchange.setStatusCode(StatusCodes.NOT_FOUND);
+            exchange.endExchange();
+            throw new RuntimeException(e);
         }
+
+        if (alwaysDownload) {
+            exchange.getResponseHeaders().put(Headers.CONTENT_DISPOSITION, "attachment; filename=" + fileData.name);
+        }
+
+        exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, getMimeType(fileData.name));
+        exchange.getResponseHeaders().put(Headers.CONTENT_LENGTH, fileData.contentLength);
+        exchange.startBlocking();
+        OutputStream out = exchange.getOutputStream();
+        out.write(fileData.contents);
+        exchange.endExchange();
     }
 }
