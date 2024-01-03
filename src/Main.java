@@ -46,6 +46,8 @@ class Main
             Undertow server = Undertow.builder()
                     .addHttpListener(port, hostIP)
                     .setHandler(Handlers.path()
+                            .addPrefixPath("/api", new ApiHandler())
+                            .addPrefixPath("/pretty", new PrettyDeliveryHandler())
                             .addPrefixPath("/download", new DeliveryHandler(true))
                             .addPrefixPath("/", new DeliveryHandler()))
                     .build();
@@ -74,7 +76,11 @@ class Main
         switch (command) {
             case "help":
                 System.out.println("help -> shows this page");
+                System.out.println("proccount -> displays the amount of requests being handled");
                 System.out.println("close -> terminates the server");
+                break;
+            case "proccount":
+                System.out.println(processesRunning.get() + " process(es) running");
                 break;
             case "close":
                 close();
@@ -94,7 +100,7 @@ class Main
                 exit(0);
             }
 
-            System.out.print("Processes are running, finishing up " + processesRunning.get() + " processe(s)... " +
+            System.out.print("Processes are running, finishing up " + processesRunning.get() + " process(es)... " +
                     "(" + timeWaited + "s)\r");
             timeWaited++;
 

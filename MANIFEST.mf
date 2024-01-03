@@ -1,2 +1,4 @@
 Manifest-Version: 1.0
 Main-Class: Main
+Class-Path: jboss-annotations-api_1.3_spec-2.0.1.Final.jar jboss-logging-3.4.1.Final.jar jboss-servlet-api_4.0_spec-2.0.0.Final.jar jboss-threads-3.1.0.Final.jar undertow-core-2.1.8.Final.jar undertow-servlet-2.1.8.Final.jar wildfly-client-config-1.0.1.Final.jar wildfly-common-1.5.2.Final.jar xnio-api-3.8.0.Final.jar xnio-nio-3.8.0.Final.jar
+
